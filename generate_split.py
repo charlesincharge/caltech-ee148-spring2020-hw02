@@ -1,4 +1,5 @@
 import argparse
+import json
 import numpy as np
 import os
 import pathlib
@@ -79,21 +80,18 @@ def main():
 
     if args.split_annotations:
         with args.annotations_path.open('r') as f:
-            gts = json.load(f)
+            annotations = json.load(f)
 
         # Use file_names_train and file_names_test to apply the split to the
         # annotations
-        gts_train = {}
-        gts_test = {}
-        '''
-        Your code below.
-        '''
+        annotations_train = {k: v for k, v in annotations.items() if k in file_names_train}
+        annotations_test =  {k: v for k, v in annotations.items() if k in file_names_test}
 
         with args.output_folder.joinpath('annotations_train.json').open('w') as f:
-            json.dump(gts_train,f)
+            json.dump(annotations_train, f)
 
         with args.output_folder.joinpath('annotations_test.json').open('w') as f:
-            json.dump(gts_test,f)
+            json.dump(annotations_test, f)
 
 
 if __name__ == '__main__':
