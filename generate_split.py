@@ -1,24 +1,68 @@
+import argparse
 import numpy as np
 import os
+import pathlib
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Split dataset into train and test sets.')
+    parser.add_argument(
+        '-d',
+        '--data-folder',
+        help='folder of images with red lights',
+        default='data/RedLights2011_Medium',
+        type=pathlib.Path,
+    )
+    parser.add_argument(
+        '-o',
+        '--output-folder',
+        help='folder to output train/tes splits to',
+        default='results/hw02_splits',
+        type=pathlib.Path,
+    )
+    parser.add_argument(
+        '-r',
+        '--random-seed',
+        help='random number seed, to ensure we always get the same train/test split',
+        default=2020,
+        type=int,
+    )
+    parser.add_argument(
+        '-f',
+        '--train-fraction',
+        help='fraction of the dataset to include in the training set.. should be in (0, 1)',
+        default=0.85,
+        type=float,
+    )
+    parser.add_argument(
+        '-a',
+        '--annotations-path',
+        help='JSON file with annotataions',
+        default='data/hw02_annotations/annotations.json',
+        type=pathlib.Path,
+    )
+    parser.add_argument(
+        '-s',
+        '--split-annotations',
+        help='whether to split the annotations.json file as well',
+        action='store_true',
+    )
+
+    return parser.parse_args()
 
 
 def main():
-    np.random.seed(2020) # to ensure you always get the same train/test split
+    args = parse_args()
 
-    data_path = '../data/RedLights2011_Medium'
-    gts_path = '../data/hw02_annotations'
-    split_path = '../data/hw02_splits'
-    os.makedirs(preds_path, exist_ok=True) # create directory if needed
+    np.random.seed(args.random_seed) # to ensure you always get the same train/test split
 
-    split_test = False # set to True and run when annotations are available
-
-    train_frac = 0.85
+    # Create output directory if needed
+    args.output_folder.mkdir(exist_ok=True)
 
     # get sorted list of files:
-    file_names = sorted(os.listdir(data_path))
-
+    file_paths = sorted(args.data_folder.iterdir())
     # remove any non-JPEG files:
-    file_names = [f for f in file_names if '.jpg' in f]
+    file_paths = [f for f in file_paths if (f.suffix == '.jpg')]
 
     # split file names into train and test
     file_names_train = []
@@ -26,15 +70,19 @@ def main():
     '''
     Your code below. 
     '''
+    file_names_train = [f.name for f in file_paths]
+    '''
+    End Code
+    '''
 
-    assert (len(file_names_train) + len(file_names_test)) == len(file_names)
+    assert (len(file_names_train) + len(file_names_test)) == len(file_paths)
     assert len(np.intersect1d(file_names_train,file_names_test)) == 0
 
-    np.save(os.path.join(split_path,'file_names_train.npy'),file_names_train)
-    np.save(os.path.join(split_path,'file_names_test.npy'),file_names_test)
+    np.save(args.output_folder.joinpath('file_names_train.npy'), file_names_train)
+    np.save(args.output_folder.joinpath('file_names_test.npy'), file_names_test)
 
-    if split_test:
-        with open(os.path.join(gts_path, 'annotations.json'),'r') as f:
+    if args.split_annotations:
+        with args.annotations_path.open('r') as f:
             gts = json.load(f)
 
         # Use file_names_train and file_names_test to apply the split to the
@@ -42,13 +90,13 @@ def main():
         gts_train = {}
         gts_test = {}
         '''
-        Your code below. 
+        Your code below.
         '''
 
-        with open(os.path.join(gts_path, 'annotations_train.json'),'w') as f:
+        with args.output_folder.joinpath('annotations_train.json').open('w') as f:
             json.dump(gts_train,f)
 
-        with open(os.path.join(gts_path, 'annotations_test.json'),'w') as f:
+        with args.output_folder.joinpath('annotations_test.json').open('w') as f:
             json.dump(gts_test,f)
 
 
