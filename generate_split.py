@@ -6,7 +6,9 @@ import pathlib
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Split dataset into train and test sets.')
+    parser = argparse.ArgumentParser(
+        description='Split dataset into train and test sets.'
+    )
     parser.add_argument(
         '-d',
         '--data-folder',
@@ -54,8 +56,7 @@ def parse_args():
 
 def main():
     args = parse_args()
-
-    np.random.seed(args.random_seed) # to ensure you always get the same train/test split
+    np.random.seed(args.random_seed)
 
     # Create output directory if needed
     args.output_folder.mkdir(exist_ok=True)
@@ -73,7 +74,7 @@ def main():
     file_names_test = np.setdiff1d(file_names, file_names_train)
 
     assert (len(file_names_train) + len(file_names_test)) == len(file_paths)
-    assert len(np.intersect1d(file_names_train,file_names_test)) == 0
+    assert len(np.intersect1d(file_names_train, file_names_test)) == 0
 
     np.save(args.output_folder.joinpath('file_names_train.npy'), file_names_train)
     np.save(args.output_folder.joinpath('file_names_test.npy'), file_names_test)
@@ -84,8 +85,12 @@ def main():
 
         # Use file_names_train and file_names_test to apply the split to the
         # annotations
-        annotations_train = {k: v for k, v in annotations.items() if k in file_names_train}
-        annotations_test =  {k: v for k, v in annotations.items() if k in file_names_test}
+        annotations_train = {
+            k: v for k, v in annotations.items() if k in file_names_train
+        }
+        annotations_test = {
+            k: v for k, v in annotations.items() if k in file_names_test
+        }
 
         with args.output_folder.joinpath('annotations_train.json').open('w') as f:
             json.dump(annotations_train, f)
