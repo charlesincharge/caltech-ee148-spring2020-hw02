@@ -3,23 +3,48 @@ import numpy as np
 import json
 from PIL import Image
 
-def compute_convolution(I, T, stride=None):
-    '''
-    This function takes an image <I> and a template <T> (both numpy arrays) 
-    and returns a heatmap where each grid represents the output produced by 
-    convolution at each location. You can add optional parameters (e.g. stride, 
-    window_size, padding) to create additional functionality. 
-    '''
-    (n_rows,n_cols,n_channels) = np.shape(I)
 
-    '''
-    BEGIN YOUR CODE
-    '''
-    heatmap = np.random.random((n_rows, n_cols))
+def compute_convolution(I, T, stride: int = 1, padding: int = 0):
+    """
+    This function takes an image <I> and a template <T> (both numpy arrays)
+    and returns a heatmap where each grid represents the output produced by
+    convolution at each location.
+    """
+    # Validate input
+    assert np.ndim(I) == np.ndim(T) == 3
+    (n_rows_i, n_cols_i, n_channels_i) = np.shape(I)
+    (n_rows_t, n_cols_t, n_channels_t) = np.shape(T)
+    assert n_rows_t <= n_rows_i
+    assert n_cols_t <= n_cols_i
+    assert n_channels_t == n_channels_i
+    # Have not yet implemented this for non-default stride/padding
+    if stride != 1:
+        raise NotImplementedError
+    if padding != 0:
+        raise NotImplementedError
 
-    '''
-    END YOUR CODE
-    '''
+    # We downsize the heatmap slightly so that the template can match
+    # only valid pixels
+    # Calculate shapes along the convolution dimensions (non-channel)
+    shape_i = np.array(I.shape[:-1], dtype=int)
+    shape_t = np.array(T.shape[:-1], dtype=int)
+    shape_h = ((shape_i + (2 * padding) - shape_h) // stride) + 1
+    heatmap = np.random.zeros(shape_h)
+
+    # Iterate over rows and columns of heatmap
+    for row_h in range(shape_h[0]):
+        for col_h in range(shape_h[1]):
+            # Translate strides/padding to image-indexing
+            row_i = (stride * row_h) - padding
+            col_i = (stride * col_h) - padding
+
+            # Slice input image to template size
+            sub_image = I[row_i : (row_i + n_rows_t), col_i : (col_i + n_cols_t)]
+
+            # Store the correlation between this image slice and the template
+            corr_matrix = np.corrcoef(sub_image.flatten(), T.flatten())
+            corr = corr_matrix[1, 0]
+            heatmap[row_h, col_h] = corr
 
     return heatmap
 
