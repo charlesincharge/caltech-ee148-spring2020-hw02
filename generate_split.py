@@ -63,17 +63,13 @@ def main():
     file_paths = sorted(args.data_folder.iterdir())
     # remove any non-JPEG files:
     file_paths = [f for f in file_paths if (f.suffix == '.jpg')]
+    # Convert from pathlib.Path to string file names (no folder)
+    file_names = [f.name for f in file_paths]
 
     # split file names into train and test
-    file_names_train = []
-    file_names_test = []
-    '''
-    Your code below. 
-    '''
-    file_names_train = [f.name for f in file_paths]
-    '''
-    End Code
-    '''
+    num_train = round(len(file_names) * args.train_fraction)
+    file_names_train = np.random.choice(file_names, size=num_train, replace=False)
+    file_names_test = np.setdiff1d(file_names, file_names_train)
 
     assert (len(file_names_train) + len(file_names_test)) == len(file_paths)
     assert len(np.intersect1d(file_names_train,file_names_test)) == 0
