@@ -3,6 +3,7 @@ import json
 import numpy as np
 import random
 import pathlib
+import os.path
 from PIL import Image, ImageDraw
 from typing import List
 
@@ -95,10 +96,16 @@ def main():
     template_choices = random.sample(image_bbox_pair_list, k=args.num_templates)
 
     # Extract templates
-    for image_name, bbox in template_choices:
+    for template_idx, template in enumerate(template_choices):
+        # Load source image and extract template
+        image_name, bbox = template
         image_path = args.data_folder.joinpath(image_name)
         template = extract_template(image_path, bbox)
-        save_path = output_folder.joinpath(image_name)
+
+        # Update save-name, could have multiple filters per input image
+        image_name_root, image_name_ext = os.path.splitext(image_name)
+        save_name = '{}_{}{}'.format(image_name_root, template_idx, image_name_ext)
+        save_path = output_folder.joinpath(save_name)
 
         print('Saving', (image_name, bbox), 'to:', save_path)
         template.save(save_path)
