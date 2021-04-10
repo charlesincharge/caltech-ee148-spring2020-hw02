@@ -4,6 +4,7 @@ import numpy as np
 import random
 import pathlib
 from PIL import Image, ImageDraw
+from typing import List
 
 
 def parse_args():
@@ -42,11 +43,33 @@ def parse_args():
         '-n',
         '--num-templates',
         help='Number of filter templates to extract',
-        default=5,
+        default=10,
         type=int,
     )
 
     return parser.parse_args()
+
+
+def extract_template(image_path: pathlib.Path, bbox: List) -> Image:
+    """Extract bounding box selection from image path.
+
+    bbox: (top_row, left_col, bottom_row, right_col)
+    """
+    assert len(bbox) == 4
+
+    # Open image with PIL
+    image = Image.open(image_path)
+
+    # image.crop takes format (left, upper, right, lower)
+    template = image.crop(swap_bbox_format(bbox))
+
+    return template
+
+
+def swap_bbox_format(bbox_tuple):
+    """Swap between (row0, col0, row1, col1) and (x0, y0, x1, y1) formats."""
+    assert len(bbox_tuple) == 4
+    return (bbox_tuple[1], bbox_tuple[0], bbox_tuple[3], bbox_tuple[2])
 
 
 def main():
@@ -71,8 +94,14 @@ def main():
     # Select n from the list
     template_choices = random.sample(image_bbox_pair_list, k=args.num_templates)
 
+    # Extract templates
     for image_name, bbox in template_choices:
-        print(image_name, ':', bbox)
+        image_path = args.data_folder.joinpath(image_name)
+        template = extract_template(image_path, bbox)
+        save_path = output_folder.joinpath(image_name)
+
+        print('Saving', (image_name, bbox), 'to:', save_path)
+        template.save(save_path)
 
 
 if __name__ == '__main__':
