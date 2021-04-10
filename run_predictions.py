@@ -35,8 +35,9 @@ def compute_convolution(I, T, stride: int = 1, padding: int = 0):
     for row_h in range(shape_h[0]):
         for col_h in range(shape_h[1]):
             # Translate strides/padding to image-indexing
-            row_i = (stride * row_h) - padding
-            col_i = (stride * col_h) - padding
+            row_i, col_i = heatmap_idx_to_image_idx(
+                np.array([row_h, col_h]), stride=stride, padding=padding
+            )
 
             # Slice input image to template size
             sub_image = I[row_i : (row_i + n_rows_t), col_i : (col_i + n_cols_t)]
@@ -49,62 +50,72 @@ def compute_convolution(I, T, stride: int = 1, padding: int = 0):
     return heatmap
 
 
-def predict_boxes(heatmap):
-    '''
+def predict_boxes(
+    heatmap: np.ndarray,
+    bbox_shape: tuple,
+    stride: int = 1,
+    padding: int = 0,
+    threshold: float = 0.9,
+):
+    """
     This function takes heatmap and returns the bounding boxes and associated
     confidence scores.
-    '''
 
-    output = []
+    Arguments
+    ---------
+    heatmap: np.array of confidence scores (correlations with template)
+    bbox_shape: 2-tuple (n_rows_b, n_cols_b) of the bounding box, usually the
+        same as the template shape.
+    stride, padding: same values used to construct the heatmap
+    """
 
-    '''
-    BEGIN YOUR CODE
-    '''
-    
-    '''
-    As an example, here's code that generates between 1 and 5 random boxes
-    of fixed size and returns the results in the proper format.
-    '''
+    # Threshold heatmap to find objects
+    object_detected_mask = heatmap > threshold
+    object_locs = np.argwhere(object_detected_mask)
 
-    box_height = 8
-    box_width = 6
+    bbox_list = []
+    for row_h, col_h in object_locs:
+        # Convert heatmap coordinates back to original coordinates
+        tl_row_i, tl_col_i = heatmap_idx_to_image_idx(
+            np.array([row_h, col_h]), stride=stride, padding=padding
+        )
 
-    num_boxes = np.random.randint(1,5)
+        # Bounding box size is pre-defined
+        br_row, br_col = np.array([tl_row_i, tl_col_i]) + np.asarray(bbox_shape)
 
-    for i in range(num_boxes):
-        (n_rows,n_cols,n_channels) = np.shape(I)
+        score = heatmap[row_h, col_h]
+        bbox_list.append([tl_row, tl_col, br_row, br_col, score])
 
-        tl_row = np.random.randint(n_rows - box_height)
-        tl_col = np.random.randint(n_cols - box_width)
-        br_row = tl_row + box_height
-        br_col = tl_col + box_width
+    return bbox_list
 
-        score = np.random.random()
 
-        output.append([tl_row,tl_col,br_row,br_col, score])
+def heatmap_idx_to_image_idx(idx_h: int, stride: int, padding: int):
+    """
+    Helper function to convert between heatmap coordinates to image coordinates
 
-    '''
-    END YOUR CODE
-    '''
-
-    return output
+    Arguments
+    ---------
+    idx_h : int or 1-D np.array of heatmap indices
+    """
+    idx_i = (stride * idx_h) - padding
+    return idx_i
 
 
 def detect_red_light_mf(I):
-    '''
+    """
     This function takes a numpy array <I> and returns a list <output>.
-    The length of <output> is the number of bounding boxes predicted for <I>. 
-    Each entry of <output> is a list <[row_TL,col_TL,row_BR,col_BR,score]>. 
-    The first four entries are four integers specifying a bounding box 
-    (the row and column index of the top left corner and the row and column 
+    The length of <output> is the number of bounding boxes predicted for <I>.
+    Each entry of <output> is a list <[row_TL,col_TL,row_BR,col_BR,score]>.
+    The first four entries are four integers specifying a bounding box
+    (the row and column index of the top left corner and the row and column
     index of the bottom right corner).
-    <score> is a confidence score ranging from 0 to 1. 
+    <score> is a confidence score ranging from 0 to 1.
 
     Note that PIL loads images in RGB order, so:
     I[:,:,0] is the red channel
     I[:,:,1] is the green channel
     I[:,:,2] is the blue channel
-    '''
+    """
 
     '''
     BEGIN YOUR CODE
@@ -116,7 +127,7 @@ def detect_red_light_mf(I):
     T = np.random.random((template_height, template_width))
 
     heatmap = compute_convolution(I, T)
-    output = predict_boxes(heatmap)
+    output = predict_boxes(heatmap, T.shape)
 
     '''
     END YOUR CODE
@@ -128,18 +139,19 @@ def detect_red_light_mf(I):
 
     return output
 
+
 # Note that you are not allowed to use test data for training.
 # set the path to the downloaded data:
 data_path = '../data/RedLights2011_Medium'
 
-# load splits: 
+# load splits:
 split_path = '../data/hw02_splits'
-file_names_train = np.load(os.path.join(split_path,'file_names_train.npy'))
-file_names_test = np.load(os.path.join(split_Path,'file_names_test.npy'))
+file_names_train = np.load(os.path.join(split_path, 'file_names_train.npy'))
+file_names_test = np.load(os.path.join(split_Path, 'file_names_test.npy'))
 
 # set a path for saving predictions:
 preds_path = '../data/hw02_preds'
-os.makedirs(preds_path, exist_ok=True) # create directory if needed
+os.makedirs(preds_path, exist_ok=True)  # create directory if needed
 
 # Set this parameter to True when you're done with algorithm development:
 done_tweaking = False
@@ -151,7 +163,7 @@ preds_train = {}
 for i in range(len(file_names_train)):
 
     # read image using PIL:
-    I = Image.open(os.path.join(data_path,file_names_train[i]))
+    I = Image.open(os.path.join(data_path, file_names_train[i]))
 
     # convert to numpy array:
     I = np.asarray(I)
@@ -159,18 +171,18 @@ for i in range(len(file_names_train)):
     preds_train[file_names_train[i]] = detect_red_light_mf(I)
 
 # save preds (overwrites any previous predictions!)
-with open(os.path.join(preds_path,'preds_train.json'),'w') as f:
-    json.dump(preds_train,f)
+with open(os.path.join(preds_path, 'preds_train.json'), 'w') as f:
+    json.dump(preds_train, f)
 
 if done_tweaking:
-    '''
-    Make predictions on the test set. 
-    '''
+    """
+    Make predictions on the test set.
+    """
     preds_test = {}
     for i in range(len(file_names_test)):
 
         # read image using PIL:
-        I = Image.open(os.path.join(data_path,file_names_test[i]))
+        I = Image.open(os.path.join(data_path, file_names_test[i]))
 
         # convert to numpy array:
         I = np.asarray(I)
@@ -178,5 +190,5 @@ if done_tweaking:
         preds_test[file_names_test[i]] = detect_red_light_mf(I)
 
     # save preds (overwrites any previous predictions!)
-    with open(os.path.join(preds_path,'preds_test.json'),'w') as f:
-        json.dump(preds_test,f)
+    with open(os.path.join(preds_path, 'preds_test.json'), 'w') as f:
+        json.dump(preds_test, f)
