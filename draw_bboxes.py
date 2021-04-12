@@ -12,7 +12,7 @@ from typing import List
 
 def swap_bbox_format(bbox_tuple):
     """Swap between (row0, col0, row1, col1) and (x0, y0, x1, y1) formats."""
-    assert len(bbox_tuple) == 4
+    assert len(bbox_tuple) >= 4
     return (bbox_tuple[1], bbox_tuple[0], bbox_tuple[3], bbox_tuple[2])
 
 
@@ -49,7 +49,7 @@ def draw_on_file(file_path : pathlib.Path, bbox_list : List, output_folder : pat
     draw = ImageDraw.Draw(image)
     NEON_GREEN = '#39FF14'
     for bbox in bbox_list:
-        assert len(bbox) == 4
+        assert len(bbox) >= 4
         draw.rectangle(swap_bbox_format(bbox), outline=NEON_GREEN)
 
     if save_images:
