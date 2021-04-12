@@ -1,3 +1,5 @@
+import argparse
+import pathlib
 import os
 import numpy as np
 import json
@@ -28,8 +30,8 @@ def compute_convolution(I, T, stride: int = 1, padding: int = 0):
     # Calculate shapes along the convolution dimensions (non-channel)
     shape_i = np.array(I.shape[:-1], dtype=int)
     shape_t = np.array(T.shape[:-1], dtype=int)
-    shape_h = ((shape_i + (2 * padding) - shape_h) // stride) + 1
-    heatmap = np.random.zeros(shape_h)
+    shape_h = ((shape_i + (2 * padding) - shape_t) // stride) + 1
+    heatmap = np.zeros(shape_h)
 
     # Iterate over rows and columns of heatmap
     for row_h in range(shape_h[0]):
@@ -124,7 +126,8 @@ def detect_red_light_mf(I):
     template_width = 6
 
     # You may use multiple stages and combine the results
-    T = np.random.random((template_height, template_width))
+    # Template = random sub-sample of image?
+    T = np.random.random((template_height, template_width, 3))
 
     heatmap = compute_convolution(I, T)
     output = predict_boxes(heatmap, T.shape)
@@ -140,55 +143,103 @@ def detect_red_light_mf(I):
     return output
 
 
-# Note that you are not allowed to use test data for training.
-# set the path to the downloaded data:
-data_path = '../data/RedLights2011_Medium'
+def parse_args():
+    parser = argparse.ArgumentParser(description='Detect red lights in images using matched filters.')
+    parser.add_argument(
+        '-d',
+        '--data-folder',
+        help='folder of images with red lights',
+        default='data/RedLights2011_Medium',
+        type=pathlib.Path,
+    )
+    parser.add_argument(
+        '-s',
+        '--splits-folder',
+        help='folder with data splits',
+        default='results/hw02_splits',
+        type=pathlib.Path,
+    )
+    parser.add_argument(
+        '-o',
+        '--output-folder',
+        help='folder to output predictions',
+        default='results/hw02_preds',
+        type=pathlib.Path,
+    )
+    parser.add_argument(
+        '-t',
+        '--template-folder',
+        help='path to matched filter templates',
+        default='templates/annotations_train',
+        type=pathlib.Path,
+    )
+    parser.add_argument(
+        '-n',
+        '--num-images',
+        help='number of images to process. defaults to all, set to int to process fewer (eg, for debugging)',
+        type=int,
+        default=None,
+    )
+    parser.add_argument(
+        '--done-tweaking',
+        help='whether to use test data. Set to True when done with algorithm development',
+        action='store_true',
+    )
 
-# load splits:
-split_path = '../data/hw02_splits'
-file_names_train = np.load(os.path.join(split_path, 'file_names_train.npy'))
-file_names_test = np.load(os.path.join(split_Path, 'file_names_test.npy'))
+    return parser.parse_args()
 
-# set a path for saving predictions:
-preds_path = '../data/hw02_preds'
-os.makedirs(preds_path, exist_ok=True)  # create directory if needed
 
-# Set this parameter to True when you're done with algorithm development:
-done_tweaking = False
+def main():
+    args = parse_args()
 
-'''
-Make predictions on the training set.
-'''
-preds_train = {}
-for i in range(len(file_names_train)):
+    # Load splits
+    file_names_train = np.load(args.splits_folder.joinpath('file_names_train.npy'))
+    file_names_test = np.load(args.splits_folder.joinpath('file_names_test.npy'))
 
-    # read image using PIL:
-    I = Image.open(os.path.join(data_path, file_names_train[i]))
+    # Create folder for saving predictions, if it doesn't exist
+    args.output_folder.mkdir(exist_ok=True)
 
-    # convert to numpy array:
-    I = np.asarray(I)
-
-    preds_train[file_names_train[i]] = detect_red_light_mf(I)
-
-# save preds (overwrites any previous predictions!)
-with open(os.path.join(preds_path, 'preds_train.json'), 'w') as f:
-    json.dump(preds_train, f)
-
-if done_tweaking:
-    """
-    Make predictions on the test set.
-    """
-    preds_test = {}
-    for i in range(len(file_names_test)):
+    '''
+    Make predictions on the training set.
+    '''
+    preds_train = {}
+    for fname in file_names_train:
+        print('Processing train set:', fname)
 
         # read image using PIL:
-        I = Image.open(os.path.join(data_path, file_names_test[i]))
+        I = Image.open(args.data_folder.joinpath(fname))
 
         # convert to numpy array:
         I = np.asarray(I)
 
-        preds_test[file_names_test[i]] = detect_red_light_mf(I)
+        preds_train[fname] = detect_red_light_mf(I)
 
     # save preds (overwrites any previous predictions!)
-    with open(os.path.join(preds_path, 'preds_test.json'), 'w') as f:
-        json.dump(preds_test, f)
+    output_path = args.output_folder.joinpath('preds_train.json')
+    with output_path.open('w') as f:
+        json.dump(preds_train, f)
+
+    if args.done_tweaking:
+        """
+        Make predictions on the test set.
+        """
+        preds_test = {}
+        for fname_test in file_names_test:
+            print('Processing test set:', fname_test)
+
+            # read image using PIL:
+            I = Image.open(args.data_folder.joinpath(fname_test))
+
+            # convert to numpy array:
+            I = np.asarray(I)
+
+            preds_test[fname_test] = detect_red_light_mf(I)
+
+        # save preds (overwrites any previous predictions!)
+        output_path_test = args.output_folder.joinpath('preds_test.json')
+        with output_path_test.open('w') as f:
+            json.dump(preds_test, f)
+
+
+if __name__ == '__main__':
+    main()
