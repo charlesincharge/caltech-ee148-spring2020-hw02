@@ -2,8 +2,11 @@ import argparse
 import pathlib
 import os
 import numpy as np
+from scipy.stats import pearsonr
 import json
+from typing import List
 from PIL import Image
+from joblib import Parallel, delayed
 
 
 def compute_convolution(I, T, stride: int = 1, padding: int = 0):
@@ -19,11 +22,6 @@ def compute_convolution(I, T, stride: int = 1, padding: int = 0):
     assert n_rows_t <= n_rows_i
     assert n_cols_t <= n_cols_i
     assert n_channels_t == n_channels_i
-    # Have not yet implemented this for non-default stride/padding
-    if stride != 1:
-        raise NotImplementedError
-    if padding != 0:
-        raise NotImplementedError
 
     # We downsize the heatmap slightly so that the template can match
     # only valid pixels
@@ -45,8 +43,7 @@ def compute_convolution(I, T, stride: int = 1, padding: int = 0):
             sub_image = I[row_i : (row_i + n_rows_t), col_i : (col_i + n_cols_t)]
 
             # Store the correlation between this image slice and the template
-            corr_matrix = np.corrcoef(sub_image.flatten(), T.flatten())
-            corr = corr_matrix[1, 0]
+            corr = pearsonr(sub_image.flatten(), T.flatten())[0]
             heatmap[row_h, col_h] = corr
 
     return heatmap
@@ -83,10 +80,13 @@ def predict_boxes(
         )
 
         # Bounding box size is pre-defined
-        br_row, br_col = np.array([tl_row_i, tl_col_i]) + np.asarray(bbox_shape)
+        br_row_i, br_col_i = np.array([tl_row_i, tl_col_i]) + np.asarray(bbox_shape)
 
         score = heatmap[row_h, col_h]
-        bbox_list.append([tl_row, tl_col, br_row, br_col, score])
+        # Convert to native Python integers to fix JSON parsing
+        bbox_list.append(
+            [tl_row_i.item(), tl_col_i.item(), br_row_i.item(), br_col_i.item(), score]
+        )
 
     return bbox_list
 
@@ -103,7 +103,7 @@ def heatmap_idx_to_image_idx(idx_h: int, stride: int, padding: int):
     return idx_i
 
 
-def detect_red_light_mf(I):
+def detect_red_light_mf(I, template_list: List):
     """
     This function takes a numpy array <I> and returns a list <output>.
     The length of <output> is the number of bounding boxes predicted for <I>.
@@ -117,34 +117,39 @@ def detect_red_light_mf(I):
     I[:,:,0] is the red channel
     I[:,:,1] is the green channel
     I[:,:,2] is the blue channel
+
+    template_list: list of numpy arrays corresponding to multiple filters
     """
 
-    '''
-    BEGIN YOUR CODE
-    '''
-    template_height = 8
-    template_width = 6
+    # Use a shallow, "wide"-CNN with multiple matched filters
+    # If an image matches any one of the templates, it gets added.
+    stride = 2  # Speed up the computations
 
-    # You may use multiple stages and combine the results
-    # Template = random sub-sample of image?
-    T = np.random.random((template_height, template_width, 3))
+    def helper_func(template):
+        heatmap = compute_convolution(I, template, stride=stride)
+        bbox_list = predict_boxes(heatmap, template.shape[:-1], stride=stride)
+        return bbox_list
 
-    heatmap = compute_convolution(I, T)
-    output = predict_boxes(heatmap, T.shape)
+    # Compute template matches in parallel to speed up
+    bbox_list_list = Parallel(n_jobs=-3)(
+        delayed(helper_func)(template) for template in template_list
+    )
 
-    '''
-    END YOUR CODE
-    '''
+    # Flatten list of lists (of lists)
+    bbox_list = [bbox for bbox_list in bbox_list_list for bbox in bbox_list]
 
-    for i in range(len(output)):
-        assert len(output[i]) == 5
-        assert (output[i][4] >= 0.0) and (output[i][4] <= 1.0)
+    # Check on output
+    for idx, bbox in enumerate(bbox_list):
+        assert len(bbox) == 5
+        assert (bbox[4] >= 0.0) and (bbox[4] <= 1.0)
 
-    return output
+    return bbox_list
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Detect red lights in images using matched filters.')
+    parser = argparse.ArgumentParser(
+        description='Detect red lights in images using matched filters.'
+    )
     parser.add_argument(
         '-d',
         '--data-folder',
@@ -195,9 +200,21 @@ def main():
     # Load splits
     file_names_train = np.load(args.splits_folder.joinpath('file_names_train.npy'))
     file_names_test = np.load(args.splits_folder.joinpath('file_names_test.npy'))
+    # Potentially sub-sample the file names
+    if args.num_images is not None:
+        file_names_train = np.random.choice(file_names_train, args.num_images)
 
     # Create folder for saving predictions, if it doesn't exist
     args.output_folder.mkdir(exist_ok=True)
+
+    # Load in templates
+    template_list = []
+    for template_path in args.template_folder.iterdir():
+        # Ignore non-jpg though
+        if template_path.suffix != '.jpg':
+            continue
+        template = Image.open(template_path)
+        template_list.append(np.asarray(template))
 
     '''
     Make predictions on the training set.
@@ -212,7 +229,7 @@ def main():
         # convert to numpy array:
         I = np.asarray(I)
 
-        preds_train[fname] = detect_red_light_mf(I)
+        preds_train[fname] = detect_red_light_mf(I, template_list)
 
     # save preds (overwrites any previous predictions!)
     output_path = args.output_folder.joinpath('preds_train.json')
@@ -233,7 +250,7 @@ def main():
             # convert to numpy array:
             I = np.asarray(I)
 
-            preds_test[fname_test] = detect_red_light_mf(I)
+            preds_test[fname_test] = detect_red_light_mf(I, template_list)
 
         # save preds (overwrites any previous predictions!)
         output_path_test = args.output_folder.joinpath('preds_test.json')
