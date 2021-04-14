@@ -54,7 +54,7 @@ def predict_boxes(
     bbox_shape: tuple,
     stride: int = 1,
     padding: int = 0,
-    threshold: float = 0.9,
+    threshold: float = 0.6,
 ):
     """
     This function takes heatmap and returns the bounding boxes and associated
