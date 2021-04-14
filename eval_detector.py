@@ -1,5 +1,8 @@
+import argparse
 import os
 import json
+import pathlib
+
 import numpy as np
 
 
@@ -88,15 +91,8 @@ def parse_args():
         type=pathlib.Path,
     )
     parser.add_argument(
-        '-a',
-        '--annotations-path',
-        help='path to bounding box ground-truth folder',
-        default='data/hw02_annotations',
-        type=pathlib.Path,
-    )
-    parser.add_argument(
         '-s',
-        '--splits-path',
+        '--splits-folder',
         help='path to folder with splits',
         default='results/hw02_splits',
         type=pathlib.Path,
@@ -104,7 +100,7 @@ def parse_args():
     parser.add_argument(
         '-d',
         '--done-tweaking',
-        help='Set to True when done with algorithm development'
+        help='Set to True when done with algorithm development',
         action='store_true',
     )
 
@@ -114,17 +110,13 @@ def parse_args():
 def main():
     args = parse_args()
 
-    # load splits:
-    file_names_train = np.load(args.splits_path.joinpath('file_names_train.npy'))
-    file_names_test = np.load(args.splits_path.joinpath('file_names_test.npy'))
-
     '''
     Load training data.
     '''
-    with args.preds_path.joinpath('preds_train.json').open('r') as f:
+    with args.preds_folder.joinpath('preds_train.json').open('r') as f:
         preds_train = json.load(f)
 
-    with args.annotations_path.joinpath('annotations_train.json').open('r') as f:
+    with args.splits_folder.joinpath('annotations_train.json').open('r') as f:
         ground_truths_train = json.load(f)
 
     if args.done_tweaking:
@@ -133,10 +125,10 @@ def main():
         Load test data.
         """
 
-        with args.preds_path.joinpath('preds_test.json').open('r') as f:
+        with args.preds_folder.joinpath('preds_test.json').open('r') as f:
             preds_test = json.load(f)
 
-        with args.annotations_path.joinpath('annotations_test.json').open('r') as f:
+        with args.splits_folder.joinpath('annotations_test.json').open('r') as f:
             ground_truths_test = json.load(f)
 
 
