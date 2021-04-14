@@ -149,7 +149,7 @@ def main():
 
     # Plot training set PR curves
 
-    if done_tweaking:
+    if args.done_tweaking:
         print('Code for plotting test set PR curves.')
 
 
