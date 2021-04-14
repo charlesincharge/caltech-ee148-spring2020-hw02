@@ -54,7 +54,7 @@ def predict_boxes(
     bbox_shape: tuple,
     stride: int = 1,
     padding: int = 0,
-    threshold: float = 0.6,
+    threshold: float = 0.7,
 ):
     """
     This function takes heatmap and returns the bounding boxes and associated
@@ -234,6 +234,7 @@ def main():
     # save preds (overwrites any previous predictions!)
     output_path = args.output_folder.joinpath('preds_train.json')
     with output_path.open('w') as f:
+        print('Saving predictions to:', f.name)
         json.dump(preds_train, f)
 
     if args.done_tweaking:
@@ -255,6 +256,7 @@ def main():
         # save preds (overwrites any previous predictions!)
         output_path_test = args.output_folder.joinpath('preds_test.json')
         with output_path_test.open('w') as f:
+            print('Saving predictions to:', f.name)
             json.dump(preds_test, f)
 
 
