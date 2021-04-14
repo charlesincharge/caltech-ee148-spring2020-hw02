@@ -39,7 +39,7 @@ def compute_iou(box_1, box_2):
     return iou
 
 
-def compute_counts(preds, gts, iou_thr=0.5, conf_thr=0.5):
+def compute_counts(preds, ground_truths, iou_thr=0.5, conf_thr=0.5):
     """
     This function takes a pair of dictionaries (with our JSON format; see ex.)
     corresponding to predicted and ground truth bounding boxes for a collection
@@ -47,7 +47,7 @@ def compute_counts(preds, gts, iou_thr=0.5, conf_thr=0.5):
     false negatives.
     <preds> is a dictionary containing predicted bounding boxes and confidence
     scores for a collection of images.
-    <gts> is a dictionary containing ground truth bounding boxes for a
+    <ground_truths> is a dictionary containing ground truth bounding boxes for a
     collection of images.
     """
     TP = 0
@@ -58,7 +58,7 @@ def compute_counts(preds, gts, iou_thr=0.5, conf_thr=0.5):
     BEGIN YOUR CODE
     '''
     for pred_file, pred in preds.iteritems():
-        gt = gts[pred_file]
+        gt = ground_truths[pred_file]
         for i in range(len(gt)):
             for j in range(len(pred)):
                 iou = compute_iou(pred[j][:4], gt[i])
@@ -117,7 +117,7 @@ def main():
         preds_train = json.load(f)
 
     with args.annotations_path.joinpath('annotations_train.json').open('r') as f:
-        gts_train = json.load(f)
+        ground_truths_train = json.load(f)
 
     if args.done_tweaking:
 
@@ -129,7 +129,7 @@ def main():
             preds_test = json.load(f)
 
         with args.annotations_path.joinpath('annotations_test.json').open('r') as f:
-            gts_test = json.load(f)
+            ground_truths_test = json.load(f)
 
 
     # For a fixed IoU threshold, vary the confidence thresholds.
@@ -144,7 +144,7 @@ def main():
     fn_train = np.zeros(len(confidence_thrs))
     for i, conf_thr in enumerate(confidence_thrs):
         tp_train[i], fp_train[i], fn_train[i] = compute_counts(
-            preds_train, gts_train, iou_thr=0.5, conf_thr=conf_thr
+            preds_train, ground_truths_train, iou_thr=0.5, conf_thr=conf_thr
         )
 
     # Plot training set PR curves
