@@ -70,39 +70,65 @@ def compute_counts(preds, gts, iou_thr=0.5, conf_thr=0.5):
     return TP, FP, FN
 
 
-def main():
+def parse_args():
+    parser = argparse.ArgumentParser(description='compute error metrics from annotations.')
+    parser.add_argument(
+        '-p',
+        '--preds-folder',
+        help='path to bounding box predictions',
+        default='results/hw02_preds/',
+        type=pathlib.Path,
+    )
+    parser.add_argument(
+        '-a',
+        '--annotations-path',
+        help='path to bounding box ground-truth folder',
+        default='data/hw02_annotations',
+        type=pathlib.Path,
+    )
+    parser.add_argument(
+        '-s',
+        '--splits-path',
+        help='path to folder with splits',
+        default='results/hw02_splits',
+        type=pathlib.Path,
+    )
+    parser.add_argument(
+        '-d',
+        '--done-tweaking',
+        help='Set to True when done with algorithm development'
+        action='store_true',
+    )
 
-    # set a path for predictions and annotations:
-    preds_path = '../data/hw02_preds'
-    gts_path = '../data/hw02_annotations'
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
 
     # load splits:
-    split_path = '../data/hw02_splits'
-    file_names_train = np.load(os.path.join(split_path, 'file_names_train.npy'))
-    file_names_test = np.load(os.path.join(split_Path, 'file_names_test.npy'))
-
-    # Set this parameter to True when you're done with algorithm development:
-    done_tweaking = False
+    file_names_train = np.load(args.splits_path.joinpath('file_names_train.npy'))
+    file_names_test = np.load(args.splits_path.joinpath('file_names_test.npy'))
 
     '''
-    Load training data. 
+    Load training data.
     '''
-    with open(os.path.join(preds_path, 'preds_train.json'), 'r') as f:
+    with args.preds_path.joinpath('preds_train.json').open('r') as f:
         preds_train = json.load(f)
 
-    with open(os.path.join(gts_path, 'annotations_train.json'), 'r') as f:
+    with args.annotations_path.joinpath('annotations_train.json').open('r') as f:
         gts_train = json.load(f)
 
-    if done_tweaking:
+    if args.done_tweaking:
 
         """
         Load test data.
         """
 
-        with open(os.path.join(preds_path, 'preds_test.json'), 'r') as f:
+        with args.preds_path.joinpath('preds_test.json').open('r') as f:
             preds_test = json.load(f)
 
-        with open(os.path.join(gts_path, 'annotations_test.json'), 'r') as f:
+        with args.annotations_path.joinpath('annotations_test.json').open('r') as f:
             gts_test = json.load(f)
 
 
