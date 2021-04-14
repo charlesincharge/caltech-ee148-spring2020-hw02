@@ -54,18 +54,26 @@ def compute_counts(preds, ground_truths, iou_thr=0.5, conf_thr=0.5):
     FP = 0
     FN = 0
 
-    '''
-    BEGIN YOUR CODE
-    '''
     for pred_file, pred in preds.iteritems():
-        gt = ground_truths[pred_file]
-        for i in range(len(gt)):
-            for j in range(len(pred)):
-                iou = compute_iou(pred[j][:4], gt[i])
+        # Skip bounding boxes with low confidence scores
+        if pred[4] < conf_thr:
+            continue
 
-    '''
-    END YOUR CODE
-    '''
+        ground_truth = ground_truths[pred_file]
+        for bbox_gt in ground_truth:
+            for bbox_pred in pred:
+                iou = compute_iou(bbox_pred[:4], bbox_gt)
+                if iou > io_thr:
+                    # Count it as a true-positive-match
+                    TP += 1
+                    break
+            else:
+                # There were no true-positives for this prediction,
+                # so count it as a false-positive
+                FP += 1
+
+        # False negatives: any bboxes we missed
+        FN += (len(ground_truth) - TP)
 
     return TP, FP, FN
 
