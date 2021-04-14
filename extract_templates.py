@@ -31,7 +31,7 @@ def parse_args():
         '-r',
         '--random-seed',
         help='random number seed, to ensure we always get the same train/test split',
-        default=2021,
+        default=148,
         type=int,
     )
     parser.add_argument(
@@ -45,7 +45,7 @@ def parse_args():
         '-n',
         '--num-templates',
         help='Number of filter templates to extract',
-        default=10,
+        default=30,
         type=int,
     )
 
