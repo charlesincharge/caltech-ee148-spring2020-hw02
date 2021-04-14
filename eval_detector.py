@@ -4,6 +4,7 @@ import json
 import pathlib
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def compute_iou(box_1, box_2):
@@ -57,21 +58,24 @@ def compute_counts(preds, ground_truths, iou_thr=0.5, conf_thr=0.5):
     FP = 0
     FN = 0
 
-    for pred_file, pred in preds.iteritems():
-        # Skip bounding boxes with low confidence scores
-        if pred[4] < conf_thr:
-            continue
+    for pred_file, pred in preds.items():
 
         ground_truth = ground_truths[pred_file]
-        for bbox_gt in ground_truth:
-            for bbox_pred in pred:
+        for bbox_pred in pred:
+            # Discard predicted bounding boxes with low confidence scores
+            if bbox_pred[4] < conf_thr:
+                continue
+
+            for bbox_gt in ground_truth:
+                # See if it matched any ground-truth boxes
                 iou = compute_iou(bbox_pred[:4], bbox_gt)
-                if iou > io_thr:
+
+                if iou > iou_thr:
                     # Count it as a true-positive-match
                     TP += 1
                     break
             else:
-                # There were no true-positives for this prediction,
+                # There were no true-matches for this prediction,
                 # so count it as a false-positive
                 FP += 1
 
@@ -136,21 +140,64 @@ def main():
     # The code below gives an example on the training set for one IoU threshold.
 
 
-    confidence_thrs = np.sort(
-        np.array([preds_train[fname][4] for fname in preds_train], dtype=float)
-    )  # using (ascending) list of confidence scores as thresholds
-    tp_train = np.zeros(len(confidence_thrs))
-    fp_train = np.zeros(len(confidence_thrs))
-    fn_train = np.zeros(len(confidence_thrs))
-    for i, conf_thr in enumerate(confidence_thrs):
-        tp_train[i], fp_train[i], fn_train[i] = compute_counts(
-            preds_train, ground_truths_train, iou_thr=0.5, conf_thr=conf_thr
-        )
+    # Plot all curves on the same figure
+    fig, ax = plt.subplots()
+    ax.set_title('Precision-recall for RedLights2011_Medium (train set)')
+    # Different iou_thresholds to try:
+    for iou_thr in [0.25, 0.5, 0.75]:
+        # Different confidence thresholds to try
+        confidence_thrs = np.linspace(start=0.5, stop=1)
+        tp_train = np.zeros(len(confidence_thrs))
+        fp_train = np.zeros(len(confidence_thrs))
+        fn_train = np.zeros(len(confidence_thrs))
+        for i, conf_thr in enumerate(confidence_thrs):
+            tp_train[i], fp_train[i], fn_train[i] = compute_counts(
+                preds_train, ground_truths_train, iou_thr=iou_thr, conf_thr=conf_thr
+            )
 
-    # Plot training set PR curves
+        # Plot training set PR curves
+        precision_train = tp_train / (tp_train + fp_train)
+        recall_train = tp_train / (tp_train + fn_train)
+
+        ax.plot(recall_train, precision_train, marker='o',
+                 label=f'iou_thr={iou_thr}')
+
+    ax.set_xlabel('recall')
+    ax.set_ylabel('precision')
+    fig.legend()
+    plt.show()
+
 
     if args.done_tweaking:
-        print('Code for plotting test set PR curves.')
+        # Plot test set precision-recall curves
+        print('Plotting test set PR curves.')
+
+        # Plot all curves on the same figure
+        fig, ax = plt.subplots()
+        ax.set_title('Precision-recall for RedLights2011_Medium (test set)')
+        # Different iou_thresholds to try:
+        for iou_thr in [0.25, 0.5, 0.75]:
+            # Different confidence thresholds to try
+            confidence_thrs = np.linspace(start=0.5, stop=1)
+            tp_test = np.zeros(len(confidence_thrs))
+            fp_test = np.zeros(len(confidence_thrs))
+            fn_test = np.zeros(len(confidence_thrs))
+            for i, conf_thr in enumerate(confidence_thrs):
+                tp_test[i], fp_test[i], fn_test[i] = compute_counts(
+                    preds_test, ground_truths_test, iou_thr=iou_thr, conf_thr=conf_thr
+                )
+
+            # Plot testing set PR curves
+            precision_test = tp_test / (tp_test + fp_test)
+            recall_test = tp_test / (tp_test + fn_test)
+
+            ax.plot(recall_test, precision_test, marker='o',
+                     label=f'iou_thr={iou_thr}')
+
+        ax.set_xlabel('recall')
+        ax.set_ylabel('precision')
+        fig.legend()
+        plt.show()
 
 
 if __name__ == '__main__':
