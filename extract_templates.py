@@ -10,7 +10,8 @@ from typing import List
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='Generate templates randomly from training data.'
+        description='Generate templates randomly from training data.',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
         '-d',
