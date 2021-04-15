@@ -1,4 +1,5 @@
 import argparse
+import copy
 import os
 import json
 import pathlib
@@ -59,8 +60,12 @@ def compute_counts(preds, ground_truths, iou_thr=0.5, conf_thr=0.5):
     FN = 0
 
     for pred_file, pred in preds.items():
+        # Keep track of true-positive/false-positive for each file
+        TP_file = 0
+        FP_file = 0
 
-        ground_truth = ground_truths[pred_file]
+        ground_truth_orig = ground_truths[pred_file]
+        ground_truth = copy.copy(ground_truth_orig)
         for bbox_pred in pred:
             # Discard predicted bounding boxes with low confidence scores
             if bbox_pred[4] < conf_thr:
@@ -72,15 +77,22 @@ def compute_counts(preds, ground_truths, iou_thr=0.5, conf_thr=0.5):
 
                 if iou > iou_thr:
                     # Count it as a true-positive-match
-                    TP += 1
+                    TP_file += 1
+                    # Remove this ground-truth so it doesn't get double-counted for a diff match
+                    ground_truth.remove(bbox_gt)
                     break
             else:
                 # There were no true-matches for this prediction,
                 # so count it as a false-positive
-                FP += 1
+                FP_file += 1
 
         # False negatives: any bboxes we missed
-        FN += (len(ground_truth) - TP)
+        FN_file = len(ground_truth_orig) - TP_file
+
+        # Accumulate values for each file
+        TP += TP_file
+        FP += FP_file
+        FN += FN_file
 
     return TP, FP, FN
 
@@ -134,11 +146,6 @@ def main():
 
         with args.splits_folder.joinpath('annotations_test.json').open('r') as f:
             ground_truths_test = json.load(f)
-
-
-    # For a fixed IoU threshold, vary the confidence thresholds.
-    # The code below gives an example on the training set for one IoU threshold.
-
 
     # Plot all curves on the same figure
     fig, ax = plt.subplots()
