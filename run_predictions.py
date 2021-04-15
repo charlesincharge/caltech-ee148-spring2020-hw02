@@ -219,23 +219,24 @@ def main():
     '''
     Make predictions on the training set.
     '''
-    preds_train = {}
-    for fname in file_names_train:
-        print('Processing train set:', fname)
+    if not args.done_tweaking:
+        preds_train = {}
+        for fname in file_names_train:
+            print('Processing train set:', fname)
 
-        # read image using PIL:
-        I = Image.open(args.data_folder.joinpath(fname))
+            # read image using PIL:
+            I = Image.open(args.data_folder.joinpath(fname))
 
-        # convert to numpy array:
-        I = np.asarray(I)
+            # convert to numpy array:
+            I = np.asarray(I)
 
-        preds_train[fname] = detect_red_light_mf(I, template_list)
+            preds_train[fname] = detect_red_light_mf(I, template_list)
 
-    # save preds (overwrites any previous predictions!)
-    output_path = args.output_folder.joinpath('preds_train.json')
-    with output_path.open('w') as f:
-        print('Saving predictions to:', f.name)
-        json.dump(preds_train, f)
+        # save preds (overwrites any previous predictions!)
+        output_path = args.output_folder.joinpath('preds_train.json')
+        with output_path.open('w') as f:
+            print('Saving predictions to:', f.name)
+            json.dump(preds_train, f)
 
     if args.done_tweaking:
         """
