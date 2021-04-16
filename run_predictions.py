@@ -146,6 +146,16 @@ def detect_red_light_mf(I, template_list: List):
     return bbox_list
 
 
+def endpad_to_size(array: np.ndarray, output_size: tuple, fill_value=np.nan) -> np.ndarray:
+    """Pad an array with fill_values at the end, up to output_size."""
+    pad_amounts = np.array(output_size, dtype=int) - np.array(array.shape, dtype=int)
+    assert (pad_amounts >= 0).all()
+
+    pad_before_after = [(0, pad) for pad in pad_amounts]
+    output = np.pad(array, pad_before_after, constant_values=fill_value)
+    return output
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description='Detect red lights in images using matched filters.'
