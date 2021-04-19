@@ -51,7 +51,7 @@ def compute_convolution(I, T, stride: int = 1, padding: int = 0):
 
 def predict_boxes(
     heatmap: np.ndarray,
-    bbox_shape: tuple,
+    bbox_shapes: np.ndarray,
     stride: int = 1,
     padding: int = 0,
     threshold: float = 0.7,
@@ -63,8 +63,8 @@ def predict_boxes(
     Arguments
     ---------
     heatmap: np.array of confidence scores (correlations with template)
-    bbox_shape: 2-tuple (n_rows_b, n_cols_b) of the bounding box, usually the
-        same as the template shape.
+    bbox_shapes: (heatmap_rows, heatmap_cols, 2) map that stores the size of the
+    bounding box that performed best at each pixel
     stride, padding: same values used to construct the heatmap
     """
 
@@ -80,7 +80,7 @@ def predict_boxes(
         )
 
         # Bounding box size is pre-defined
-        br_row_i, br_col_i = np.array([tl_row_i, tl_col_i]) + np.asarray(bbox_shape)
+        br_row_i, br_col_i = np.array([tl_row_i, tl_col_i]) + np.asarray(bbox_shapes[row_h, col_h])
 
         score = heatmap[row_h, col_h]
         # Convert to native Python integers to fix JSON parsing
@@ -125,18 +125,40 @@ def detect_red_light_mf(I, template_list: List):
     # If an image matches any one of the templates, it gets added.
     stride = 2  # Speed up the computations
 
-    def helper_func(template):
-        heatmap = compute_convolution(I, template, stride=stride)
-        bbox_list = predict_boxes(heatmap, template.shape[:-1], stride=stride)
-        return bbox_list
+    # The less robust method
+    #
+    # def helper_func(template):
+    #     heatmap = compute_convolution(I, template, stride=stride)
+    #     bbox_list = predict_boxes(heatmap, template.shape[:-1], stride=stride)
+    #     return bbox_list
+
+    # # Compute template matches in parallel to speed up
+    # bbox_list_list = Parallel(n_jobs=-3)(
+    #     delayed(helper_func)(template) for template in template_list
+    # )
 
     # Compute template matches in parallel to speed up
-    bbox_list_list = Parallel(n_jobs=-3)(
-        delayed(helper_func)(template) for template in template_list
+    heatmap_list = Parallel(n_jobs=-3)(
+        delayed(compute_convolution)(I, template, stride=stride)
+            for template in template_list
     )
+    # Pad heatmaps to the same size
+    heatmap_max_size = np.max([h.shape for h in heatmap_list], axis=0)
+    heatmap_list = [endpad_to_size(h, heatmap_max_size) for h in heatmap_list]
 
-    # Flatten list of lists (of lists)
-    bbox_list = [bbox for bbox_list in bbox_list_list for bbox in bbox_list]
+    # Combine heatmaps by taking the average of the top-3 matches
+    heatmap_sorted = np.sort(heatmap_list, axis=0)
+    # heatmap is now in ascending correlation value.
+    # We want the 3 highest correlation values (end of sort)
+    heatmap_avg = heatmap_sorted[-3:].mean(axis=0)
+
+    # Create map of which bounding box size to use at each location
+    template_sizes = np.array([t.shape[:-1] for t in template_list])
+    heatmap_argmax = np.argmax(heatmap_list, axis=0) # -> might be able to convert this to an object array for use with argwhere
+    heatmap_template_sizes = template_sizes[heatmap_argmax]
+
+    # Use this heatmap to grab bboxes
+    bbox_list = predict_boxes(heatmap_avg, heatmap_template_sizes, stride=stride)
 
     # Check on output
     for idx, bbox in enumerate(bbox_list):
