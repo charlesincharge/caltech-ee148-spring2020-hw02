@@ -32,6 +32,13 @@ def parse_args():
         default='results/hw01_preds/matchedfilter/bounding_boxes_preds.json',
         type=pathlib.Path,
     )
+    parser.add_argument(
+        '-t',
+        '--confidence-threshold',
+        help='confidence value above which to consider box as detection',
+        default=0.85,
+        type=float
+    )
 
     return parser.parse_args()
 
@@ -67,6 +74,7 @@ def main():
 
     for file_name, bbox_list in bounding_boxes_preds.items():
         file_path = args.data_folder.joinpath(file_name)
+        bbox_list = filter(lambda bbox: bbox[4] > args.confidence_threshold, bbox_list)
         draw_on_file(file_path, bbox_list, args.json_path.parent, save_images=True)
 
 
